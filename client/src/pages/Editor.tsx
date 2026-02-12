@@ -1,13 +1,12 @@
 /**
  * Editor — Page principale de l'éditeur mobile first
- * Formulaire + Prévisualisation + Actions (vCard, impression)
- * Sélection de template en haut
+ * Flux : Sélection visuelle de template → Formulaire + Prévisualisation → Actions
+ * Design: Inclusion sociale, simplicité, accessibilité
  */
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Download, Printer, Eye, Edit3,
-  Sparkles, Crown, Minus, Shield, Printer as PrinterIcon,
   RotateCcw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,19 +14,11 @@ import { toast } from "sonner";
 import Header from "@/components/Header";
 import CardForm from "@/components/CardForm";
 import CardPreview from "@/components/CardPreview";
-import { templatePreviews } from "@/lib/templates";
+import TemplateSelector from "@/components/TemplateSelector";
 import { saveCardData, loadCardData, clearCardData } from "@/lib/storage";
 import { downloadVCard, printCard } from "@/lib/export-utils";
 import { defaultCardData } from "@/lib/types";
 import type { BusinessCardData, TemplateId } from "@/lib/types";
-
-const templateIcons: Record<string, React.ElementType> = {
-  Sparkles,
-  Crown,
-  Minus,
-  Shield,
-  Printer: PrinterIcon,
-};
 
 export default function Editor() {
   const [cardData, setCardData] = useState<BusinessCardData>(() => {
@@ -40,6 +31,7 @@ export default function Editor() {
     return saved;
   });
   const [activeView, setActiveView] = useState<"form" | "preview">("form");
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
 
   // Auto-save
   useEffect(() => {
@@ -81,30 +73,61 @@ export default function Editor() {
       <Header />
 
       <main className="flex-1 flex flex-col">
-        {/* Template selector */}
-        <div className="border-b border-border bg-card/50">
-          <div className="container py-3">
-            <p className="text-xs text-muted-foreground mb-2 font-medium">Choisir un modèle :</p>
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 custom-scrollbar">
-              {templatePreviews.map((tp) => {
-                const Icon = templateIcons[tp.icon] || Sparkles;
-                const isActive = cardData.templateId === tp.id;
-                return (
-                  <button
-                    key={tp.id}
-                    onClick={() => handleTemplateChange(tp.id)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border whitespace-nowrap text-sm transition-all touch-target shrink-0 ${
-                      isActive
-                        ? "border-primary bg-primary/10 text-primary font-medium"
-                        : "border-border bg-card text-muted-foreground hover:border-primary/50"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span>{tp.name}</span>
-                  </button>
-                );
-              })}
-            </div>
+        {/* ── Template Selector visuel ── */}
+        <div className="border-b border-border bg-card/30">
+          <div className="container py-4">
+            {/* Toggle pour afficher/masquer le sélecteur complet */}
+            <button
+              onClick={() => setShowTemplateSelector(!showTemplateSelector)}
+              className="w-full flex items-center justify-between gap-3 group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg overflow-hidden border border-border shadow-sm shrink-0">
+                  <TemplateThumbnail templateId={cardData.templateId} />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-foreground leading-tight">
+                    Modèle : <span style={{ color: "#FF6B00" }}>{getTemplateName(cardData.templateId)}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Appuyez pour changer de modèle
+                  </p>
+                </div>
+              </div>
+              <motion.div
+                animate={{ rotate: showTemplateSelector ? 180 : 0 }}
+                transition={{ duration: 0.2 }}
+                className="text-muted-foreground"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </motion.div>
+            </button>
+
+            {/* Sélecteur visuel dépliable */}
+            <motion.div
+              initial={false}
+              animate={{
+                height: showTemplateSelector ? "auto" : 0,
+                opacity: showTemplateSelector ? 1 : 0,
+              }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="overflow-hidden"
+            >
+              <div className="pt-4">
+                <TemplateSelector
+                  selected={cardData.templateId}
+                  onSelect={(id) => {
+                    handleTemplateChange(id);
+                    // Sur mobile, fermer le sélecteur après choix
+                    if (window.innerWidth < 768) {
+                      setTimeout(() => setShowTemplateSelector(false), 300);
+                    }
+                  }}
+                />
+              </div>
+            </motion.div>
           </div>
         </div>
 
@@ -218,4 +241,52 @@ export default function Editor() {
       `}</style>
     </div>
   );
+}
+
+// ── Miniature rapide pour le bouton toggle ──
+function TemplateThumbnail({ templateId }: { templateId: TemplateId }) {
+  const colors: Record<TemplateId, { bg: string; accent: string; text: string }> = {
+    moderne: { bg: "#FFFFFF", accent: "#0F3460", text: "#1A1A2E" },
+    classique: { bg: "#FBF8F1", accent: "#B87333", text: "#2D2A26" },
+    minimal: { bg: "#FFFFFF", accent: "#555555", text: "#111111" },
+    gouvernemental: { bg: "#FFFFFF", accent: "#FF6B00", text: "#009E60" },
+    physique: { bg: "#FFFFFF", accent: "#FF6B00", text: "#009E60" },
+  };
+  const c = colors[templateId];
+  const isCI = templateId === "gouvernemental" || templateId === "physique";
+
+  return (
+    <div className="w-full h-full flex flex-col" style={{ backgroundColor: c.bg }}>
+      {isCI && (
+        <div className="flex w-full h-0.5 shrink-0">
+          <div className="flex-1" style={{ backgroundColor: "#FF6B00" }} />
+          <div className="flex-1 bg-white" />
+          <div className="flex-1" style={{ backgroundColor: "#009E60" }} />
+        </div>
+      )}
+      <div className="flex-1 flex items-center justify-center p-1">
+        <div className="w-4 h-4 rounded-sm flex items-center justify-center text-[6px] font-bold text-white" style={{ backgroundColor: c.accent }}>
+          K
+        </div>
+      </div>
+      {isCI && (
+        <div className="flex w-full h-0.5 shrink-0">
+          <div className="flex-1" style={{ backgroundColor: "#FF6B00" }} />
+          <div className="flex-1 bg-white" />
+          <div className="flex-1" style={{ backgroundColor: "#009E60" }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function getTemplateName(id: TemplateId): string {
+  const names: Record<TemplateId, string> = {
+    moderne: "Moderne",
+    classique: "Classique",
+    minimal: "Minimal",
+    gouvernemental: "Gouvernemental",
+    physique: "Carte Physique",
+  };
+  return names[id];
 }
