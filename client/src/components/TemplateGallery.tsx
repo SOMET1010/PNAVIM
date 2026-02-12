@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Search, Trash2, ArrowRight } from "lucide-react";
+import { Search, Trash2, ArrowRight, Heart } from "lucide-react";
 import { templatePreviews, templateConfigs, categories } from "@/lib/templates";
 import { getCustomTemplates, deleteCustomTemplate } from "@/lib/storage";
+import { useFavorites } from "@/contexts/FavoritesContext";
 import type { CustomTemplate, TemplatePreview } from "@/lib/types";
+import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +29,7 @@ export function TemplateGallery() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { isFavorite, toggleFavorite } = useFavorites();
 
   useEffect(() => {
     setCustomTemplates(getCustomTemplates());
@@ -52,6 +55,20 @@ export function TemplateGallery() {
 
   const handleSelectTemplate = (id: number | string) => {
     setLocation(`/editor?template=${id}`);
+  };
+
+  const handleToggleFavorite = (e: React.MouseEvent, templateId: string) => {
+    e.stopPropagation();
+    const added = toggleFavorite(templateId);
+    if (added) {
+      toast("Ajouté aux favoris", {
+        icon: <Heart className="h-4 w-4 text-destructive fill-destructive" />,
+      });
+    } else {
+      toast("Retiré des favoris", {
+        icon: <Heart className="h-4 w-4 text-muted-foreground" />,
+      });
+    }
   };
 
   const confirmDelete = () => {
@@ -119,57 +136,82 @@ export function TemplateGallery() {
 
       {/* Template grid */}
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-        {filteredTemplates.map((template) => (
-          <Card
-            key={template.id}
-            className="overflow-hidden group cursor-pointer transition-all duration-200 hover:paper-shadow-lg active:scale-[0.98]"
-            onClick={() => handleSelectTemplate(template.id)}
-          >
-            <div className="relative card-aspect bg-muted overflow-hidden">
-              {template.preview ? (
-                <img
-                  src={template.preview}
-                  alt={template.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
-                />
-              ) : (
-                renderMiniPreview(template)
-              )}
-              {template.isCustom && (
-                <>
-                  <Badge className="absolute top-1.5 left-1.5 text-[10px] bg-primary">
-                    Perso
-                  </Badge>
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-1.5 right-1.5 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setTemplateToDelete(String(template.id));
-                      setDeleteDialogOpen(true);
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </>
-              )}
-            </div>
-            <div className="p-2.5 sm:p-3 space-y-1.5">
-              <h3 className="font-medium text-sm leading-tight line-clamp-1">{template.name}</h3>
-              <div className="flex gap-1 flex-wrap">
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                  {template.category}
-                </Badge>
+        {filteredTemplates.map((template) => {
+          const templateId = String(template.id);
+          const fav = isFavorite(templateId);
+
+          return (
+            <Card
+              key={template.id}
+              className="overflow-hidden group cursor-pointer transition-all duration-200 hover:paper-shadow-lg active:scale-[0.98]"
+              onClick={() => handleSelectTemplate(template.id)}
+            >
+              <div className="relative card-aspect bg-muted overflow-hidden">
+                {template.preview ? (
+                  <img
+                    src={template.preview}
+                    alt={template.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                  />
+                ) : (
+                  renderMiniPreview(template)
+                )}
+
+                {/* Favorite button — always visible */}
+                <button
+                  onClick={(e) => handleToggleFavorite(e, templateId)}
+                  className={`absolute top-2 right-2 w-8 h-8 rounded-full backdrop-blur-sm flex items-center justify-center shadow-sm transition-all duration-200 hover:scale-110 active:scale-90 z-10 ${
+                    fav
+                      ? "bg-destructive/15 dark:bg-destructive/25"
+                      : "bg-white/80 dark:bg-card/80 opacity-0 group-hover:opacity-100"
+                  } ${fav ? "!opacity-100" : ""}`}
+                  aria-label={fav ? "Retirer des favoris" : "Ajouter aux favoris"}
+                >
+                  <Heart
+                    className={`h-4 w-4 transition-colors ${
+                      fav
+                        ? "text-destructive fill-destructive"
+                        : "text-muted-foreground"
+                    }`}
+                  />
+                </button>
+
+                {template.isCustom && (
+                  <>
+                    <Badge className="absolute top-1.5 left-1.5 text-[10px] bg-primary">
+                      Perso
+                    </Badge>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute bottom-1.5 right-1.5 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTemplateToDelete(String(template.id));
+                        setDeleteDialogOpen(true);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </>
+                )}
               </div>
-              <Button size="sm" className="w-full mt-1.5 text-xs h-8 touch-target">
-                Utiliser
-                <ArrowRight className="h-3 w-3 ml-1" />
-              </Button>
-            </div>
-          </Card>
-        ))}
+              <div className="p-2.5 sm:p-3 space-y-1.5">
+                <h3 className="font-medium text-sm leading-tight line-clamp-1">{template.name}</h3>
+                <div className="flex gap-1 flex-wrap">
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                    {template.category}
+                  </Badge>
+                </div>
+                <Button size="sm" className="w-full mt-1.5 text-xs h-8 touch-target">
+                  Utiliser
+                  <ArrowRight className="h-3 w-3 ml-1" />
+                </Button>
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
       {filteredTemplates.length === 0 && (

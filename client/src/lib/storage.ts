@@ -3,6 +3,7 @@ import type { CustomTemplate, BusinessCardData, BrandKit } from "./types";
 const CUSTOM_TEMPLATES_KEY = "cardcreator_custom_templates";
 const VERSION_HISTORY_KEY = "cardcreator_version_history";
 const BRAND_KITS_KEY = "cardcreator_brand_kits";
+const FAVORITES_KEY = "cardcreator_favorites";
 
 // Custom Templates
 export function getCustomTemplates(): CustomTemplate[] {
@@ -79,4 +80,32 @@ export function saveBrandKit(kit: BrandKit): void {
 export function deleteBrandKit(id: string): void {
   const kits = getBrandKits().filter((k) => k.id !== id);
   localStorage.setItem(BRAND_KITS_KEY, JSON.stringify(kits));
+}
+
+// Favorites
+export function getFavorites(): string[] {
+  try {
+    const data = localStorage.getItem(FAVORITES_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function toggleFavorite(templateId: string): boolean {
+  const favorites = getFavorites();
+  const index = favorites.indexOf(templateId);
+  if (index >= 0) {
+    favorites.splice(index, 1);
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
+    return false; // removed
+  } else {
+    favorites.push(templateId);
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
+    return true; // added
+  }
+}
+
+export function isFavorite(templateId: string): boolean {
+  return getFavorites().includes(templateId);
 }
