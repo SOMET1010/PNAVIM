@@ -1,75 +1,75 @@
+/**
+ * Export Utils — vCard, impression
+ */
 import type { BusinessCardData } from "./types";
 
-export function exportToPNG(canvas: HTMLCanvasElement, filename: string) {
-  try {
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = filename;
-        link.click();
-        URL.revokeObjectURL(url);
+/**
+ * Génère un fichier vCard (.vcf) à partir des données de la carte
+ */
+export function generateVCard(data: BusinessCardData): string {
+  const { personal, contact, socialLinks } = data;
+
+  const nameParts = personal.fullName.trim().split(" ");
+  const lastName = nameParts.length > 1 ? nameParts.pop() : "";
+  const firstName = nameParts.join(" ");
+
+  let vcard = "BEGIN:VCARD\n";
+  vcard += "VERSION:3.0\n";
+  vcard += `FN:${personal.fullName}\n`;
+  vcard += `N:${lastName};${firstName};;;\n`;
+
+  if (personal.title) vcard += `TITLE:${personal.title}\n`;
+  if (personal.organization) vcard += `ORG:${personal.organization}\n`;
+  if (contact.mobile) vcard += `TEL;TYPE=CELL:${contact.mobile}\n`;
+  if (contact.landline) vcard += `TEL;TYPE=WORK:${contact.landline}\n`;
+  if (contact.email) vcard += `EMAIL;TYPE=WORK:${contact.email}\n`;
+  if (contact.website) vcard += `URL:${contact.website}\n`;
+  if (contact.address) vcard += `ADR;TYPE=WORK:;;${contact.address};;;;\n`;
+  if (socialLinks.linkedin) vcard += `X-SOCIALPROFILE;TYPE=linkedin:${socialLinks.linkedin}\n`;
+  if (socialLinks.twitter) vcard += `X-SOCIALPROFILE;TYPE=twitter:${socialLinks.twitter}\n`;
+  if (socialLinks.facebook) vcard += `X-SOCIALPROFILE;TYPE=facebook:${socialLinks.facebook}\n`;
+  if (socialLinks.instagram) vcard += `X-SOCIALPROFILE;TYPE=instagram:${socialLinks.instagram}\n`;
+
+  data.customFields.forEach((field) => {
+    if (field.value) {
+      if (field.type === "url") {
+        vcard += `URL;TYPE=${field.label}:${field.value}\n`;
+      } else {
+        vcard += `NOTE:${field.label}: ${field.value}\n`;
       }
-    }, "image/png");
-  } catch (error) {
-    console.error("Error exporting to PNG:", error);
-  }
-}
-
-export function exportToPDF(
-  frontCanvas: HTMLCanvasElement,
-  backCanvas: HTMLCanvasElement,
-  filename: string,
-) {
-  try {
-    const frontImgData = frontCanvas.toDataURL("image/png");
-    const backImgData = backCanvas.toDataURL("image/png");
-
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(`<!DOCTYPE html>
-<html><head><title>${filename}</title>
-<style>
-@page { size: 89mm 59mm; margin: 0; }
-body { margin: 0; padding: 0; background: white; }
-.page { width: 89mm; height: 59mm; page-break-after: always; display: flex; justify-content: center; align-items: center; position: relative; background: white; }
-.page:last-child { page-break-after: auto; }
-.card-content { width: 85mm; height: 55mm; position: relative; }
-img { width: 100%; height: 100%; object-fit: cover; }
-</style></head><body>
-<div class="page"><div class="card-content"><img src="${frontImgData}" alt="Recto" /></div></div>
-<div class="page"><div class="card-content"><img src="${backImgData}" alt="Verso" /></div></div>
-<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>
-</body></html>`);
-      printWindow.document.close();
     }
-  } catch (error) {
-    console.error("Error exporting to PDF:", error);
-  }
+  });
+
+  vcard += "END:VCARD\n";
+  return vcard;
 }
 
-export function exportToVCard(data: BusinessCardData) {
-  try {
-    const vCardData = `BEGIN:VCARD
-VERSION:3.0
-FN:${data.name}
-TITLE:${data.title}
-ORG:${data.company}
-EMAIL:${data.email}
-TEL:${data.phone}
-URL:${data.website}
-ADR:;;${data.address};;;;
-END:VCARD`;
+/**
+ * Télécharge le fichier vCard
+ */
+export function downloadVCard(data: BusinessCardData): void {
+  const vcardContent = generateVCard(data);
+  const blob = new Blob([vcardContent], { type: "text/vcard;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${data.personal.fullName || "carte-visite"}.vcf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
-    const blob = new Blob([vCardData], { type: "text/vcard" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${data.name || "contact"}.vcf`;
-    link.click();
-    URL.revokeObjectURL(url);
-  } catch (error) {
-    console.error("Error exporting to vCard:", error);
-  }
+/**
+ * Génère le contenu QR code (vCard format)
+ */
+export function generateQRContent(data: BusinessCardData): string {
+  return generateVCard(data);
+}
+
+/**
+ * Impression de la carte
+ */
+export function printCard(): void {
+  window.print();
 }

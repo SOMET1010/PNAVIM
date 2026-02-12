@@ -1,189 +1,485 @@
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { Upload, QrCode, X, Share2, Linkedin, Twitter, Facebook, Instagram, Github } from "lucide-react";
-import { useState } from "react";
-import type { BusinessCardData } from "@/lib/types";
+/**
+ * CardForm — Formulaire de saisie mobile first
+ * Photo, informations personnelles, coordonnées, réseaux sociaux, champs personnalisables
+ */
+import { useState, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+  User, Briefcase, Building2, Phone, Mail, Globe, MapPin,
+  Camera, X, Plus, Trash2, Linkedin, Twitter, Facebook, Instagram,
+  ChevronDown, ChevronUp, Link2, Type, Share2
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { BusinessCardData, CustomField } from "@/lib/types";
 
 interface CardFormProps {
   data: BusinessCardData;
-  onChange: (updates: Partial<BusinessCardData>) => void;
-  activeSide: "front" | "back";
+  onChange: (data: BusinessCardData) => void;
 }
 
-export function CardForm({ data, onChange, activeSide }: CardFormProps) {
-  const [isGeneratingQR, setIsGeneratingQR] = useState(false);
+export default function CardForm({ data, onChange }: CardFormProps) {
+  const [expandedSections, setExpandedSections] = useState({
+    personal: true,
+    contact: true,
+    social: false,
+    custom: false,
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        onChange({ logo: event.target?.result as string });
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert("La photo ne doit pas dépasser 5 Mo");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      onChange({
+        ...data,
+        personal: { ...data.personal, photo: ev.target?.result as string },
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removePhoto = () => {
+    onChange({ ...data, personal: { ...data.personal, photo: null } });
+  };
+
+  const updatePersonal = (field: string, value: string) => {
+    onChange({ ...data, personal: { ...data.personal, [field]: value } });
+  };
+
+  const updateContact = (field: string, value: string) => {
+    onChange({ ...data, contact: { ...data.contact, [field]: value } });
+  };
+
+  const updateSocial = (field: string, value: string) => {
+    onChange({ ...data, socialLinks: { ...data.socialLinks, [field]: value } });
+  };
+
+  const addCustomField = () => {
+    const newField: CustomField = {
+      id: `cf-${Date.now()}`,
+      type: "text",
+      label: "",
+      value: "",
+    };
+    onChange({ ...data, customFields: [...data.customFields, newField] });
+    if (!expandedSections.custom) {
+      setExpandedSections((prev) => ({ ...prev, custom: true }));
     }
   };
 
-  const generateQRCode = async () => {
-    setIsGeneratingQR(true);
-    try {
-      const vCardData = `BEGIN:VCARD\nVERSION:3.0\nFN:${data.name}\nTITLE:${data.title}\nORG:${data.company}\nEMAIL:${data.email}\nTEL:${data.phone}\nURL:${data.website}\nADR:;;${data.address};;;;\nEND:VCARD`;
-      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(vCardData)}`;
-      onChange({ qrCode: qrCodeUrl });
-    } catch (error) {
-      console.error("Error generating QR code:", error);
-    } finally {
-      setIsGeneratingQR(false);
-    }
+  const updateCustomField = (id: string, field: Partial<CustomField>) => {
+    onChange({
+      ...data,
+      customFields: data.customFields.map((cf) =>
+        cf.id === id ? { ...cf, ...field } : cf
+      ),
+    });
   };
 
-  if (activeSide === "back") {
-    return (
-      <div className="space-y-5">
-        <div className="space-y-2">
-          <Label htmlFor="backContent" className="text-sm font-medium">Contenu du verso</Label>
-          <Textarea
-            id="backContent"
-            placeholder="Ajoutez un message, slogan, ou laissez vide pour le nom de l'entreprise"
-            value={data.backContent}
-            onChange={(e) => onChange({ backContent: e.target.value })}
-            rows={4}
-            className="text-base prevent-zoom resize-none"
-          />
-          <p className="text-xs text-muted-foreground">
-            Laissez vide pour afficher le nom de votre entreprise
-          </p>
-        </div>
+  const removeCustomField = (id: string) => {
+    onChange({
+      ...data,
+      customFields: data.customFields.filter((cf) => cf.id !== id),
+    });
+  };
 
-        <div className="space-y-3 pt-4 border-t border-border/60">
-          <Label className="text-sm font-medium">Code QR (verso)</Label>
-          <p className="text-xs text-muted-foreground">Le QR code apparaîtra au centre du verso</p>
-          {data.qrCode ? (
-            <div className="flex items-center gap-3">
-              <img src={data.qrCode} alt="QR Code" className="w-16 h-16 border rounded-lg" />
-              <Button variant="outline" size="sm" onClick={() => onChange({ qrCode: null })}>
-                <X className="h-4 w-4 mr-2" />
-                Supprimer
-              </Button>
-            </div>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={generateQRCode}
-              disabled={isGeneratingQR || !data.name || !data.email}
-              className="w-full touch-target"
-            >
-              <QrCode className="h-4 w-4 mr-2" />
-              {isGeneratingQR ? "Génération..." : "Générer un QR code vCard"}
-            </Button>
-          )}
-        </div>
+  const SectionHeader = ({
+    title,
+    icon: Icon,
+    section,
+    count,
+  }: {
+    title: string;
+    icon: React.ElementType;
+    section: keyof typeof expandedSections;
+    count?: number;
+  }) => (
+    <button
+      onClick={() => toggleSection(section)}
+      className="w-full flex items-center justify-between py-3 px-4 touch-target"
+      aria-expanded={expandedSections[section]}
+    >
+      <div className="flex items-center gap-2">
+        <Icon className="w-5 h-5 text-primary" />
+        <span className="font-semibold text-base">{title}</span>
+        {count !== undefined && count > 0 && (
+          <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full">
+            {count}
+          </span>
+        )}
       </div>
-    );
-  }
+      {expandedSections[section] ? (
+        <ChevronUp className="w-5 h-5 text-muted-foreground" />
+      ) : (
+        <ChevronDown className="w-5 h-5 text-muted-foreground" />
+      )}
+    </button>
+  );
 
   return (
     <div className="space-y-4">
-      {/* Required fields */}
-      <div className="space-y-2">
-        <Label htmlFor="name" className="text-sm font-medium">Nom complet *</Label>
-        <Input id="name" placeholder="Jean Dupont" value={data.name} onChange={(e) => onChange({ name: e.target.value })} className="text-base prevent-zoom touch-target" />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="title" className="text-sm font-medium">Titre / Poste *</Label>
-        <Input id="title" placeholder="Directeur Marketing" value={data.title} onChange={(e) => onChange({ title: e.target.value })} className="text-base prevent-zoom touch-target" />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="company" className="text-sm font-medium">Entreprise *</Label>
-        <Input id="company" placeholder="Mon Entreprise" value={data.company} onChange={(e) => onChange({ company: e.target.value })} className="text-base prevent-zoom touch-target" />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="email" className="text-sm font-medium">Email *</Label>
-        <Input id="email" type="email" placeholder="jean.dupont@exemple.fr" value={data.email} onChange={(e) => onChange({ email: e.target.value })} className="text-base prevent-zoom touch-target" />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="phone" className="text-sm font-medium">Téléphone</Label>
-        <Input id="phone" type="tel" placeholder="+33 6 12 34 56 78" value={data.phone} onChange={(e) => onChange({ phone: e.target.value })} className="text-base prevent-zoom touch-target" />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="website" className="text-sm font-medium">Site web</Label>
-        <Input id="website" type="url" placeholder="www.exemple.fr" value={data.website} onChange={(e) => onChange({ website: e.target.value })} className="text-base prevent-zoom touch-target" />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="address" className="text-sm font-medium">Adresse</Label>
-        <Textarea id="address" placeholder="123 Rue de la Paix, 75001 Paris" value={data.address} onChange={(e) => onChange({ address: e.target.value })} rows={2} className="text-base prevent-zoom resize-none" />
-      </div>
-
-      {/* Logo upload */}
-      <div className="space-y-3 pt-4 border-t border-border/60">
-        <Label className="text-sm font-medium">Logo</Label>
-        {data.logo ? (
-          <div className="flex items-center gap-3">
-            <img src={data.logo} alt="Logo" className="w-14 h-14 object-contain border rounded-lg" />
-            <Button variant="outline" size="sm" onClick={() => onChange({ logo: null })}>
-              <X className="h-4 w-4 mr-2" />
-              Supprimer
-            </Button>
-          </div>
-        ) : (
-          <div>
-            <input type="file" id="logo-upload" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-            <Button variant="outline" size="sm" onClick={() => document.getElementById("logo-upload")?.click()} className="w-full touch-target">
-              <Upload className="h-4 w-4 mr-2" />
-              Télécharger un logo
-            </Button>
-          </div>
+      {/* Photo de profil */}
+      <div className="flex flex-col items-center gap-3 py-4">
+        <div className="relative">
+          {data.personal.photo ? (
+            <div className="relative w-24 h-24 rounded-full overflow-hidden border-3 border-primary/20 paper-shadow">
+              <img
+                src={data.personal.photo}
+                alt="Photo de profil"
+                className="w-full h-full object-cover"
+              />
+              <button
+                onClick={removePhoto}
+                className="absolute top-0 right-0 bg-destructive text-destructive-foreground rounded-full p-1 shadow-md"
+                aria-label="Supprimer la photo"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-24 h-24 rounded-full border-2 border-dashed border-primary/30 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-primary/60 hover:text-primary transition-colors touch-target"
+            >
+              <Camera className="w-6 h-6" />
+              <span className="text-xs">Photo</span>
+            </button>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handlePhotoUpload}
+            className="hidden"
+          />
+        </div>
+        {data.personal.photo && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            className="text-xs"
+          >
+            Changer la photo
+          </Button>
         )}
       </div>
 
-      {/* Social links */}
-      <Accordion type="single" collapsible className="w-full">
-        <AccordionItem value="social" className="border-border/60">
-          <AccordionTrigger className="text-sm font-medium py-3">
-            <div className="flex items-center gap-2">
-              <Share2 className="h-4 w-4" />
-              Réseaux sociaux
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="space-y-3 pt-2">
-            <div className="flex items-center gap-2">
-              <Linkedin className="h-4 w-4 text-muted-foreground shrink-0" />
-              <Input placeholder="linkedin.com/in/..." value={data.socialLinks?.linkedin || ""} onChange={(e) => onChange({ socialLinks: { ...data.socialLinks, linkedin: e.target.value } })} className="text-base prevent-zoom" />
-            </div>
-            <div className="flex items-center gap-2">
-              <Twitter className="h-4 w-4 text-muted-foreground shrink-0" />
-              <Input placeholder="@username" value={data.socialLinks?.twitter || ""} onChange={(e) => onChange({ socialLinks: { ...data.socialLinks, twitter: e.target.value } })} className="text-base prevent-zoom" />
-            </div>
-            <div className="flex items-center gap-2">
-              <Facebook className="h-4 w-4 text-muted-foreground shrink-0" />
-              <Input placeholder="facebook.com/..." value={data.socialLinks?.facebook || ""} onChange={(e) => onChange({ socialLinks: { ...data.socialLinks, facebook: e.target.value } })} className="text-base prevent-zoom" />
-            </div>
-            <div className="flex items-center gap-2">
-              <Instagram className="h-4 w-4 text-muted-foreground shrink-0" />
-              <Input placeholder="@username" value={data.socialLinks?.instagram || ""} onChange={(e) => onChange({ socialLinks: { ...data.socialLinks, instagram: e.target.value } })} className="text-base prevent-zoom" />
-            </div>
-            <div className="flex items-center gap-2">
-              <Github className="h-4 w-4 text-muted-foreground shrink-0" />
-              <Input placeholder="github.com/..." value={data.socialLinks?.github || ""} onChange={(e) => onChange({ socialLinks: { ...data.socialLinks, github: e.target.value } })} className="text-base prevent-zoom" />
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+      {/* Informations personnelles */}
+      <div className="border border-border rounded-xl overflow-hidden bg-card">
+        <SectionHeader title="Informations personnelles" icon={User} section="personal" />
+        <AnimatePresence>
+          {expandedSections.personal && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="px-4 pb-4 space-y-3">
+                <div>
+                  <Label htmlFor="fullName" className="text-sm flex items-center gap-1.5 mb-1.5">
+                    <User className="w-3.5 h-3.5" /> Nom complet *
+                  </Label>
+                  <Input
+                    id="fullName"
+                    placeholder="Ex: Kouassi Aya Marie"
+                    value={data.personal.fullName}
+                    onChange={(e) => updatePersonal("fullName", e.target.value)}
+                    className="prevent-zoom"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="title" className="text-sm flex items-center gap-1.5 mb-1.5">
+                    <Briefcase className="w-3.5 h-3.5" /> Fonction / Titre
+                  </Label>
+                  <Input
+                    id="title"
+                    placeholder="Ex: Directrice des Ressources Humaines"
+                    value={data.personal.title}
+                    onChange={(e) => updatePersonal("title", e.target.value)}
+                    className="prevent-zoom"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="organization" className="text-sm flex items-center gap-1.5 mb-1.5">
+                    <Building2 className="w-3.5 h-3.5" /> Organisation / Ministère
+                  </Label>
+                  <Input
+                    id="organization"
+                    placeholder="Ex: Ministère de la Fonction Publique"
+                    value={data.personal.organization}
+                    onChange={(e) => updatePersonal("organization", e.target.value)}
+                    className="prevent-zoom"
+                  />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Coordonnées */}
+      <div className="border border-border rounded-xl overflow-hidden bg-card">
+        <SectionHeader title="Coordonnées" icon={Phone} section="contact" />
+        <AnimatePresence>
+          {expandedSections.contact && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="px-4 pb-4 space-y-3">
+                <div>
+                  <Label htmlFor="mobile" className="text-sm flex items-center gap-1.5 mb-1.5">
+                    <Phone className="w-3.5 h-3.5" /> Téléphone mobile
+                  </Label>
+                  <div className="flex gap-2">
+                    <span className="flex items-center px-3 bg-muted rounded-lg text-sm text-muted-foreground whitespace-nowrap">
+                      +225
+                    </span>
+                    <Input
+                      id="mobile"
+                      type="tel"
+                      placeholder="07 XX XX XX XX"
+                      value={data.contact.mobile}
+                      onChange={(e) => updateContact("mobile", e.target.value)}
+                      className="prevent-zoom"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="landline" className="text-sm flex items-center gap-1.5 mb-1.5">
+                    <Phone className="w-3.5 h-3.5" /> Téléphone fixe
+                  </Label>
+                  <div className="flex gap-2">
+                    <span className="flex items-center px-3 bg-muted rounded-lg text-sm text-muted-foreground whitespace-nowrap">
+                      +225
+                    </span>
+                    <Input
+                      id="landline"
+                      type="tel"
+                      placeholder="27 XX XX XX XX"
+                      value={data.contact.landline}
+                      onChange={(e) => updateContact("landline", e.target.value)}
+                      className="prevent-zoom"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="email" className="text-sm flex items-center gap-1.5 mb-1.5">
+                    <Mail className="w-3.5 h-3.5" /> Email professionnel
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="prenom.nom@gouv.ci"
+                    value={data.contact.email}
+                    onChange={(e) => updateContact("email", e.target.value)}
+                    className="prevent-zoom"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="website" className="text-sm flex items-center gap-1.5 mb-1.5">
+                    <Globe className="w-3.5 h-3.5" /> Site web
+                  </Label>
+                  <Input
+                    id="website"
+                    type="url"
+                    placeholder="https://www.exemple.gouv.ci"
+                    value={data.contact.website}
+                    onChange={(e) => updateContact("website", e.target.value)}
+                    className="prevent-zoom"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="address" className="text-sm flex items-center gap-1.5 mb-1.5">
+                    <MapPin className="w-3.5 h-3.5" /> Adresse professionnelle
+                  </Label>
+                  <Input
+                    id="address"
+                    placeholder="Abidjan, Plateau, Rue..."
+                    value={data.contact.address}
+                    onChange={(e) => updateContact("address", e.target.value)}
+                    className="prevent-zoom"
+                  />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Réseaux sociaux */}
+      <div className="border border-border rounded-xl overflow-hidden bg-card">
+        <SectionHeader title="Réseaux sociaux" icon={Share2} section="social" />
+        <AnimatePresence>
+          {expandedSections.social && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="px-4 pb-4 space-y-3">
+                <div>
+                  <Label className="text-sm flex items-center gap-1.5 mb-1.5">
+                    <Linkedin className="w-3.5 h-3.5" /> LinkedIn
+                  </Label>
+                  <Input
+                    placeholder="https://linkedin.com/in/..."
+                    value={data.socialLinks.linkedin || ""}
+                    onChange={(e) => updateSocial("linkedin", e.target.value)}
+                    className="prevent-zoom"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm flex items-center gap-1.5 mb-1.5">
+                    <Twitter className="w-3.5 h-3.5" /> Twitter / X
+                  </Label>
+                  <Input
+                    placeholder="https://twitter.com/..."
+                    value={data.socialLinks.twitter || ""}
+                    onChange={(e) => updateSocial("twitter", e.target.value)}
+                    className="prevent-zoom"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm flex items-center gap-1.5 mb-1.5">
+                    <Facebook className="w-3.5 h-3.5" /> Facebook
+                  </Label>
+                  <Input
+                    placeholder="https://facebook.com/..."
+                    value={data.socialLinks.facebook || ""}
+                    onChange={(e) => updateSocial("facebook", e.target.value)}
+                    className="prevent-zoom"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm flex items-center gap-1.5 mb-1.5">
+                    <Instagram className="w-3.5 h-3.5" /> Instagram
+                  </Label>
+                  <Input
+                    placeholder="https://instagram.com/..."
+                    value={data.socialLinks.instagram || ""}
+                    onChange={(e) => updateSocial("instagram", e.target.value)}
+                    className="prevent-zoom"
+                  />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Champs personnalisables */}
+      <div className="border border-border rounded-xl overflow-hidden bg-card">
+        <SectionHeader
+          title="Champs personnalisés"
+          icon={Plus}
+          section="custom"
+          count={data.customFields.length}
+        />
+        <AnimatePresence>
+          {expandedSections.custom && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="px-4 pb-4 space-y-3">
+                {data.customFields.map((field) => (
+                  <div key={field.id} className="flex gap-2 items-start p-3 bg-muted/50 rounded-lg">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex gap-2">
+                        <Select
+                          value={field.type}
+                          onValueChange={(val) =>
+                            updateCustomField(field.id, { type: val as CustomField["type"] })
+                          }
+                        >
+                          <SelectTrigger className="w-28">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="text">
+                              <span className="flex items-center gap-1.5">
+                                <Type className="w-3 h-3" /> Texte
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="url">
+                              <span className="flex items-center gap-1.5">
+                                <Link2 className="w-3 h-3" /> Lien
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="social">
+                              <span className="flex items-center gap-1.5">
+                                <Share2 className="w-3 h-3" /> Social
+                              </span>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          placeholder="Libellé"
+                          value={field.label}
+                          onChange={(e) =>
+                            updateCustomField(field.id, { label: e.target.value })
+                          }
+                          className="prevent-zoom"
+                        />
+                      </div>
+                      <Input
+                        placeholder="Valeur"
+                        value={field.value}
+                        onChange={(e) =>
+                          updateCustomField(field.id, { value: e.target.value })
+                        }
+                        className="prevent-zoom"
+                      />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeCustomField(field.id)}
+                      className="text-destructive hover:text-destructive shrink-0 mt-1"
+                      aria-label="Supprimer ce champ"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={addCustomField}
+                  className="w-full touch-target"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Ajouter un champ
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

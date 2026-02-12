@@ -1,88 +1,99 @@
-export interface BusinessCardData {
-  name: string;
-  title: string;
-  company: string;
-  email: string;
-  phone: string;
-  website: string;
-  address: string;
-  logo: string | null;
-  qrCode: string | null;
-  template: CardTemplate;
-  backContent: string;
-  socialLinks: SocialLinks;
+/**
+ * Types — Générateur de Cartes de Visite pour Fonctionnaires CI
+ * Cahier des charges : 5 templates, QR code, vCard, impression
+ */
+
+// ── Template IDs ──
+export type TemplateId = "moderne" | "classique" | "minimal" | "gouvernemental" | "physique";
+
+// ── Informations personnelles ──
+export interface PersonalInfo {
+  photo: string | null;        // base64 ou URL de la photo de profil
+  fullName: string;            // Nom complet
+  title: string;               // Fonction / Titre
+  organization: string;        // Organisation / Ministère
 }
 
-export interface CardTemplate {
-  id: number | string;
-  name: string;
-  backgroundColor: string;
-  textColor: string;
-  accentColor: string;
-  fontFamily: string;
-  layout: "left-aligned" | "centered" | "modern";
-  backgroundImage?: string;
-  pattern?: string;
+// ── Coordonnées ──
+export interface ContactInfo {
+  mobile: string;              // Téléphone mobile (+225)
+  landline: string;            // Téléphone fixe (+225)
+  email: string;               // Email professionnel
+  website: string;             // Site web
+  address: string;             // Adresse professionnelle
 }
 
+// ── Réseaux sociaux ──
 export interface SocialLinks {
   linkedin?: string;
   twitter?: string;
   facebook?: string;
   instagram?: string;
-  github?: string;
 }
 
-export interface CustomTemplate extends CardTemplate {
-  category: string;
-  style: string;
-  preview: string;
-  createdAt: string;
-}
-
-export interface TemplatePreview {
-  id: number | string;
-  name: string;
-  category: string;
-  style: string;
-  preview: string;
-  isCustom?: boolean;
-}
-
-export interface BrandKit {
+// ── Champ personnalisable ──
+export interface CustomField {
   id: string;
-  name: string;
-  colors: {
-    primary: string;
-    secondary: string;
-    accent: string;
-  };
-  fonts: {
-    heading: string;
-    body: string;
-  };
-  logo: string | null;
+  type: "text" | "url" | "social";
+  label: string;
+  value: string;
+  icon?: string;
 }
 
+// ── Données complètes de la carte ──
+export interface BusinessCardData {
+  personal: PersonalInfo;
+  contact: ContactInfo;
+  socialLinks: SocialLinks;
+  customFields: CustomField[];
+  templateId: TemplateId;
+}
+
+// ── Configuration d'un template ──
+export interface TemplateConfig {
+  id: TemplateId;
+  name: string;
+  description: string;
+  backgroundColor: string;
+  textColor: string;
+  accentColor: string;
+  secondaryAccent?: string;
+  fontFamily: string;
+  layout: "left-aligned" | "centered" | "modern" | "official" | "print";
+  usesNationalColors: boolean;
+}
+
+// ── Aperçu template pour la galerie ──
+export interface TemplatePreview {
+  id: TemplateId;
+  name: string;
+  description: string;
+  icon: string; // lucide icon name
+}
+
+// ── Couleurs nationales CI ──
+export const CI_COLORS = {
+  orange: "#FF6B00",
+  white: "#FFFFFF",
+  green: "#009E60",
+} as const;
+
+// ── Données par défaut ──
 export const defaultCardData: BusinessCardData = {
-  name: "",
-  title: "",
-  company: "",
-  email: "",
-  phone: "",
-  website: "",
-  address: "",
-  logo: null,
-  qrCode: null,
-  template: {
-    id: 1,
-    name: "Moderne Minimaliste",
-    backgroundColor: "#FFFFFF",
-    textColor: "#000000",
-    accentColor: "#B87333",
-    fontFamily: "sans-serif",
-    layout: "left-aligned",
+  personal: {
+    photo: null,
+    fullName: "",
+    title: "",
+    organization: "",
   },
-  backContent: "",
+  contact: {
+    mobile: "",
+    landline: "",
+    email: "",
+    website: "",
+    address: "",
+  },
   socialLinks: {},
+  customFields: [],
+  templateId: "moderne",
 };

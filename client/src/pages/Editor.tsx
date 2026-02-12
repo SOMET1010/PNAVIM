@@ -1,302 +1,221 @@
 /**
- * Editor Page — Atelier Papetier Design
- * Mobile first: bottom tabs, swipeable panels, full-width canvas
- * On mobile: stacked layout with tabs for Form/Preview/Customize
- * On desktop: side-by-side layout
+ * Editor — Page principale de l'éditeur mobile first
+ * Formulaire + Prévisualisation + Actions (vCard, impression)
+ * Sélection de template en haut
  */
-import { useState, useRef, useCallback } from "react";
-import { useSearch } from "wouter";
-import { Header } from "@/components/Header";
-import { CardCanvas } from "@/components/CardCanvas";
-import { CardForm } from "@/components/CardForm";
-import { CustomizationPanel } from "@/components/CustomizationPanel";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Download,
-  FileImage,
-  Contact,
-  RotateCcw,
-  Undo2,
-  Redo2,
-  Save,
-  ChevronDown,
-  Pencil,
-  Eye,
-  Palette,
-  ArrowLeft,
+  Download, Printer, Eye, Edit3,
+  Sparkles, Crown, Minus, Shield, Printer as PrinterIcon,
+  RotateCcw
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Link } from "wouter";
-import type { BusinessCardData } from "@/lib/types";
+import Header from "@/components/Header";
+import CardForm from "@/components/CardForm";
+import CardPreview from "@/components/CardPreview";
+import { templatePreviews } from "@/lib/templates";
+import { saveCardData, loadCardData, clearCardData } from "@/lib/storage";
+import { downloadVCard, printCard } from "@/lib/export-utils";
 import { defaultCardData } from "@/lib/types";
-import { templateConfigs } from "@/lib/templates";
-import { exportToPNG, exportToVCard } from "@/lib/export-utils";
-import { saveVersion } from "@/lib/storage";
+import type { BusinessCardData, TemplateId } from "@/lib/types";
+
+const templateIcons: Record<string, React.ElementType> = {
+  Sparkles,
+  Crown,
+  Minus,
+  Shield,
+  Printer: PrinterIcon,
+};
 
 export default function Editor() {
-  const search = useSearch();
-  const params = new URLSearchParams(search);
-  const templateId = params.get("template");
-
   const [cardData, setCardData] = useState<BusinessCardData>(() => {
-    const initial = { ...defaultCardData };
-    if (templateId && templateConfigs[templateId]) {
-      initial.template = { ...templateConfigs[templateId] };
+    const saved = loadCardData();
+    const params = new URLSearchParams(window.location.search);
+    const templateParam = params.get("template");
+    if (templateParam && ["moderne", "classique", "minimal", "gouvernemental", "physique"].includes(templateParam)) {
+      return { ...saved, templateId: templateParam as TemplateId };
     }
-    return initial;
+    return saved;
   });
+  const [activeView, setActiveView] = useState<"form" | "preview">("form");
 
-  const [activeSide, setActiveSide] = useState<"front" | "back">("front");
-  const [mobileTab, setMobileTab] = useState("form");
-  const [history, setHistory] = useState<BusinessCardData[]>([cardData]);
-  const [historyIndex, setHistoryIndex] = useState(0);
+  // Auto-save
+  useEffect(() => {
+    const timer = setTimeout(() => saveCardData(cardData), 500);
+    return () => clearTimeout(timer);
+  }, [cardData]);
 
-  const frontCanvasRef = useRef<HTMLCanvasElement>(null);
-  const backCanvasRef = useRef<HTMLCanvasElement>(null);
-
-  const handleChange = useCallback(
-    (updates: Partial<BusinessCardData>) => {
-      setCardData((prev) => {
-        const next = { ...prev, ...updates };
-        // If template is being updated, merge it
-        if (updates.template) {
-          next.template = { ...prev.template, ...updates.template };
-        }
-        if (updates.socialLinks) {
-          next.socialLinks = { ...prev.socialLinks, ...updates.socialLinks };
-        }
-        setHistory((h) => [...h.slice(0, historyIndex + 1), next]);
-        setHistoryIndex((i) => i + 1);
-        return next;
-      });
-    },
-    [historyIndex],
-  );
-
-  const undo = () => {
-    if (historyIndex > 0) {
-      setHistoryIndex((i) => i - 1);
-      setCardData(history[historyIndex - 1]);
-    }
+  const handleDataChange = (newData: BusinessCardData) => {
+    setCardData(newData);
   };
 
-  const redo = () => {
-    if (historyIndex < history.length - 1) {
-      setHistoryIndex((i) => i + 1);
-      setCardData(history[historyIndex + 1]);
-    }
+  const handleTemplateChange = (templateId: TemplateId) => {
+    setCardData((prev) => ({ ...prev, templateId }));
   };
 
-  const reset = () => {
-    const initial = { ...defaultCardData };
-    if (templateId && templateConfigs[templateId]) {
-      initial.template = { ...templateConfigs[templateId] };
-    }
-    setCardData(initial);
-    setHistory([initial]);
-    setHistoryIndex(0);
-    toast.success("Carte réinitialisée");
-  };
-
-  const handleExportPNG = () => {
-    const canvas = activeSide === "front" ? frontCanvasRef.current : backCanvasRef.current;
-    if (canvas) {
-      exportToPNG(canvas, `carte-${activeSide}-${cardData.name || "visite"}.png`);
-      toast.success(`${activeSide === "front" ? "Recto" : "Verso"} exporté en PNG`);
-    }
-  };
-
-  const handleExportVCard = () => {
-    if (!cardData.name || !cardData.email) {
-      toast.error("Veuillez renseigner au moins le nom et l'email");
+  const handleDownloadVCard = () => {
+    if (!cardData.personal.fullName) {
+      toast.error("Veuillez saisir au moins votre nom");
       return;
     }
-    exportToVCard(cardData);
-    toast.success("Contact vCard exporté");
+    downloadVCard(cardData);
+    toast.success("Fichier vCard téléchargé !");
   };
 
-  const handleSave = () => {
-    saveVersion(`Version ${new Date().toLocaleString("fr-FR")}`, cardData);
-    toast.success("Version sauvegardée");
+  const handlePrint = () => {
+    printCard();
+  };
+
+  const handleReset = () => {
+    if (confirm("Voulez-vous vraiment réinitialiser tous les champs ?")) {
+      setCardData({ ...defaultCardData });
+      clearCardData();
+      toast.success("Formulaire réinitialisé");
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
 
-      {/* Toolbar */}
-      <div className="border-b border-border/60 bg-card/80 backdrop-blur-sm">
-        <div className="container py-2 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1">
-            <Link href="/">
-              <Button variant="ghost" size="icon" className="h-9 w-9">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={undo} disabled={historyIndex <= 0}>
-              <Undo2 className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={redo} disabled={historyIndex >= history.length - 1}>
-              <Redo2 className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={reset}>
-              <RotateCcw className="h-4 w-4" />
-            </Button>
+      <main className="flex-1 flex flex-col">
+        {/* Template selector */}
+        <div className="border-b border-border bg-card/50">
+          <div className="container py-3">
+            <p className="text-xs text-muted-foreground mb-2 font-medium">Choisir un modèle :</p>
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 custom-scrollbar">
+              {templatePreviews.map((tp) => {
+                const Icon = templateIcons[tp.icon] || Sparkles;
+                const isActive = cardData.templateId === tp.id;
+                return (
+                  <button
+                    key={tp.id}
+                    onClick={() => handleTemplateChange(tp.id)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border whitespace-nowrap text-sm transition-all touch-target shrink-0 ${
+                      isActive
+                        ? "border-primary bg-primary/10 text-primary font-medium"
+                        : "border-border bg-card text-muted-foreground hover:border-primary/50"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{tp.name}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="sm" onClick={handleSave} className="h-9 gap-1.5">
-              <Save className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Sauvegarder</span>
-            </Button>
+        {/* Mobile view toggle */}
+        <div className="md:hidden border-b border-border bg-card/30">
+          <div className="container flex gap-1 py-2">
+            <button
+              onClick={() => setActiveView("form")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors touch-target ${
+                activeView === "form"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              <Edit3 className="w-4 h-4" />
+              Formulaire
+            </button>
+            <button
+              onClick={() => setActiveView("preview")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors touch-target ${
+                activeView === "preview"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              <Eye className="w-4 h-4" />
+              Aperçu
+            </button>
+          </div>
+        </div>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" className="h-9 gap-1.5">
-                  <Download className="h-3.5 w-3.5" />
-                  Exporter
-                  <ChevronDown className="h-3 w-3" />
+        {/* Content */}
+        <div className="flex-1 container py-4 md:py-6">
+          <div className="flex flex-col md:flex-row gap-6 md:gap-8">
+            {/* Form */}
+            <div className={`md:w-1/2 lg:w-2/5 ${activeView === "preview" ? "hidden md:block" : ""}`}>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-serif text-xl font-bold">Vos informations</h2>
+                <Button variant="ghost" size="sm" onClick={handleReset} className="text-muted-foreground">
+                  <RotateCcw className="w-4 h-4 mr-1" />
+                  Réinitialiser
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleExportPNG}>
-                  <FileImage className="h-4 w-4 mr-2" />
-                  Exporter en PNG
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleExportVCard}>
-                  <Contact className="h-4 w-4 mr-2" />
-                  Exporter en vCard
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </div>
+              <CardForm data={cardData} onChange={handleDataChange} />
+            </div>
+
+            {/* Preview */}
+            <div className={`md:w-1/2 lg:w-3/5 ${activeView === "form" ? "hidden md:block" : ""}`}>
+              <div className="md:sticky md:top-20">
+                <h2 className="font-serif text-xl font-bold mb-4">Aperçu de votre carte</h2>
+                <motion.div
+                  key={cardData.templateId}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <CardPreview data={cardData} />
+                </motion.div>
+
+                {/* Actions */}
+                <div className="mt-6 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button onClick={handleDownloadVCard} className="touch-target" size="lg">
+                      <Download className="w-5 h-5 mr-2" />
+                      Télécharger vCard
+                    </Button>
+                    <Button variant="outline" onClick={handlePrint} className="touch-target" size="lg">
+                      <Printer className="w-5 h-5 mr-2" />
+                      Imprimer
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Le QR code contient vos informations de contact au format vCard
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
+      </main>
+
+      {/* Mobile bottom action bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border p-3 safe-area-bottom z-40">
+        <div className="flex gap-2">
+          <Button onClick={handleDownloadVCard} className="flex-1 touch-target" size="lg">
+            <Download className="w-5 h-5 mr-2" />
+            vCard
+          </Button>
+          <Button variant="outline" onClick={handlePrint} className="touch-target" size="lg">
+            <Printer className="w-5 h-5" />
+          </Button>
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col lg:flex-row">
-        {/* Desktop sidebar - Form & Customization */}
-        <aside className="hidden lg:block w-[380px] xl:w-[420px] border-r border-border/60 overflow-y-auto custom-scrollbar">
-          <div className="p-6 space-y-6">
-            <Tabs defaultValue="form" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="form" className="gap-1.5">
-                  <Pencil className="h-3.5 w-3.5" />
-                  Informations
-                </TabsTrigger>
-                <TabsTrigger value="customize" className="gap-1.5">
-                  <Palette className="h-3.5 w-3.5" />
-                  Personnaliser
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="form" className="mt-4">
-                <CardForm data={cardData} onChange={handleChange} activeSide={activeSide} />
-              </TabsContent>
-              <TabsContent value="customize" className="mt-4">
-                <CustomizationPanel data={cardData} onChange={handleChange} />
-              </TabsContent>
-            </Tabs>
-          </div>
-        </aside>
-
-        {/* Canvas area */}
-        <main className="flex-1 flex flex-col items-center justify-start p-4 sm:p-6 lg:p-8 overflow-y-auto">
-          {/* Side toggle */}
-          <div className="flex items-center gap-2 mb-4">
-            <Button
-              variant={activeSide === "front" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveSide("front")}
-              className="touch-target"
-            >
-              Recto
-            </Button>
-            <Button
-              variant={activeSide === "back" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveSide("back")}
-              className="touch-target"
-            >
-              Verso
-            </Button>
-          </div>
-
-          {/* Canvas */}
-          <div className="w-full max-w-2xl">
-            <div className={activeSide === "front" ? "block" : "hidden"}>
-              <CardCanvas ref={frontCanvasRef} data={cardData} side="front" />
-            </div>
-            <div className={activeSide === "back" ? "block" : "hidden"}>
-              <CardCanvas ref={backCanvasRef} data={cardData} side="back" />
-            </div>
-          </div>
-
-          <p className="text-xs text-muted-foreground mt-3 text-center">
-            Format standard : 85 × 55 mm (1004 × 650 px)
-          </p>
-        </main>
-      </div>
-
-      {/* Mobile bottom tabs */}
-      <div className="lg:hidden border-t border-border/60 bg-card safe-area-bottom">
-        <Tabs value={mobileTab} onValueChange={setMobileTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 h-14 rounded-none bg-card">
-            <TabsTrigger value="form" className="flex-col gap-0.5 text-[10px] py-2 data-[state=active]:bg-primary/8">
-              <Pencil className="h-4 w-4" />
-              Infos
-            </TabsTrigger>
-            <TabsTrigger value="preview" className="flex-col gap-0.5 text-[10px] py-2 data-[state=active]:bg-primary/8">
-              <Eye className="h-4 w-4" />
-              Aperçu
-            </TabsTrigger>
-            <TabsTrigger value="customize" className="flex-col gap-0.5 text-[10px] py-2 data-[state=active]:bg-primary/8">
-              <Palette className="h-4 w-4" />
-              Style
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="form" className="p-4 max-h-[50vh] overflow-y-auto custom-scrollbar mt-0">
-            <CardForm data={cardData} onChange={handleChange} activeSide={activeSide} />
-          </TabsContent>
-
-          <TabsContent value="preview" className="p-4 mt-0">
-            <div className="flex items-center gap-2 mb-3 justify-center">
-              <Button
-                variant={activeSide === "front" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setActiveSide("front")}
-              >
-                Recto
-              </Button>
-              <Button
-                variant={activeSide === "back" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setActiveSide("back")}
-              >
-                Verso
-              </Button>
-            </div>
-            <div className={activeSide === "front" ? "block" : "hidden"}>
-              <CardCanvas data={cardData} side="front" />
-            </div>
-            <div className={activeSide === "back" ? "block" : "hidden"}>
-              <CardCanvas data={cardData} side="back" />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="customize" className="p-4 max-h-[50vh] overflow-y-auto custom-scrollbar mt-0">
-            <CustomizationPanel data={cardData} onChange={handleChange} />
-          </TabsContent>
-        </Tabs>
-      </div>
+      {/* Print styles */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #card-preview, #card-preview * { visibility: visible; }
+          #card-preview {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 89mm;
+            height: 59mm;
+            box-shadow: none;
+            border-radius: 0;
+          }
+        }
+      `}</style>
     </div>
   );
 }
