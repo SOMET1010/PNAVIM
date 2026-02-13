@@ -68,3 +68,10 @@
 - [x] Ajouter bouton de partage Twitter (X) dans la page Partage
 - [x] Intégrer les icônes et couleurs officielles LinkedIn et Twitter
 - [x] Tester les liens de partage sur mobile et desktop
+
+## Métadonnées Open Graph
+- [x] Créer une route API serveur pour générer une image OG dynamique par carte (/api/og/:userId)
+- [x] Ajouter le middleware SSR pour injecter les balises OG dans le HTML pour les crawlers
+- [x] Intégrer les balises Twitter Card (summary_large_image)
+- [x] Tests vitest OG (7 tests : SVG, meta, XSS, truncation, tricolor)
+- [x] Tests curl : LinkedIn, Twitter, WhatsApp, navigateur normal
