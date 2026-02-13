@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getLoginUrl } from "@/const";
@@ -15,12 +16,21 @@ export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
 
-  // Rediriger vers /ma-carte si déjà connecté
+  // Vérifier le statut OTP
+  const otpStatus = trpc.otp.status.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
+
+  // Rediriger selon le statut de vérification email
   useEffect(() => {
-    if (isAuthenticated && user) {
-      setLocation("/ma-carte");
+    if (isAuthenticated && user && otpStatus.data) {
+      if (otpStatus.data.verified) {
+        setLocation("/ma-carte");
+      } else {
+        setLocation("/verify-email");
+      }
     }
-  }, [isAuthenticated, user, setLocation]);
+  }, [isAuthenticated, user, otpStatus.data, setLocation]);
 
   if (loading) {
     return (

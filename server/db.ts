@@ -105,6 +105,7 @@ export async function updateUserCard(userId: number, data: {
   fonction?: string | null;
   direction?: string | null;
   organisation?: string | null;
+  email?: string | null;
   telephone?: string | null;
   telephoneFixe?: string | null;
   adresse?: string | null;

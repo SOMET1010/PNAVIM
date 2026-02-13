@@ -8,9 +8,9 @@
 
 ## Phase 2 : Écran 1 - Connexion
 - [x] Page de connexion avec auth Manus OAuth
-- [ ] Vérification domaine contre whitelist (OTP flow à implémenter)
-- [ ] Envoi OTP par email
-- [ ] Validation OTP et création session
+- [x] Vérification domaine contre whitelist (OTP flow)
+- [x] Envoi OTP par email via API ANSUT
+- [x] Validation OTP et création session
 
 ## Phase 3 : Écran 2 - Ma Carte
 - [x] Affichage instantané des infos (nom, prénom, fonction, direction, tel, email, photo, QR)
@@ -45,9 +45,20 @@
 - [x] HTTPS
 - [x] Journalisation connexions (table LOGS)
 - [x] Logs d'activité
-- [ ] Rate limiting OTP
+- [x] Rate limiting OTP (max 5 tentatives en 5 minutes)
 
 ## Phase 8 : Tests
 - [x] Tests auth (me, logout)
 - [x] Tests card (getMyCard, updateMyCard, getPublicCard)
 - [x] Tests admin (stats, listUsers, listDomains, recentLogs, permissions)
+- [x] Tests messaging (generateOtpCode, buildOtpEmailHtml, buildOtpSmsContent, credentials)
+- [x] Tests OTP (checkDomain, sendEmail, verify, status, permissions)
+
+## OTP via API ANSUT (smsgateway.ablele.net)
+- [x] Configurer les secrets ANSUT_GATEWAY_URL, ANSUT_USERNAME, ANSUT_PASSWORD
+- [x] Créer le module server/messaging.ts pour l'envoi email via API ANSUT
+- [x] Implémenter la génération OTP 6 chiffres et stockage en BDD
+- [x] Ajouter les routes tRPC otp.sendEmail et otp.verify
+- [x] Créer l'interface frontend de vérification email + saisie OTP
+- [x] Intégrer le flux OTP dans le parcours de connexion (après OAuth, avant Ma Carte)
+- [x] Écrire les tests vitest pour le module OTP (13 tests)

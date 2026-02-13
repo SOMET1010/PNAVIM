@@ -34,12 +34,24 @@ export default function MaCarte() {
   const [isEditing, setIsEditing] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
+  // Vérifier le statut OTP
+  const otpStatus = trpc.otp.status.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
+
   // Redirect if not authenticated
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       setLocation("/");
     }
   }, [loading, isAuthenticated, setLocation]);
+
+  // Redirect if email not verified
+  useEffect(() => {
+    if (isAuthenticated && otpStatus.data && !otpStatus.data.verified) {
+      setLocation("/verify-email");
+    }
+  }, [isAuthenticated, otpStatus.data, setLocation]);
 
   const { data: cardData, isLoading: cardLoading, refetch } = trpc.card.getMyCard.useQuery(
     undefined,

@@ -7,4 +7,8 @@ export const ENV = {
   isProduction: process.env.NODE_ENV === "production",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
+  // ANSUT Gateway pour envoi email/SMS OTP
+  ansutGatewayUrl: process.env.ANSUT_GATEWAY_URL ?? "",
+  ansutUsername: process.env.ANSUT_USERNAME ?? "",
+  ansutPassword: process.env.ANSUT_PASSWORD ?? "",
 };
