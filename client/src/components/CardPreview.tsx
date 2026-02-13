@@ -8,7 +8,7 @@ import { Phone, Mail, Globe, MapPin } from "lucide-react";
 import type { BusinessCardData, TemplateId } from "@/lib/types";
 import { CI_COLORS } from "@/lib/types";
 import { getTemplateConfig } from "@/lib/templates";
-import { generateVCard } from "@/lib/export-utils";
+import { generateQRVCard } from "@/lib/export-utils";
 
 interface CardPreviewProps {
   data: BusinessCardData;
@@ -18,7 +18,7 @@ interface CardPreviewProps {
 
 export default function CardPreview({ data, className = "", scale = 1 }: CardPreviewProps) {
   const config = getTemplateConfig(data.templateId);
-  const qrValue = generateVCard(data);
+  const qrValue = generateQRVCard(data);
   const hasData = data.personal.fullName || data.personal.title || data.personal.organization;
 
   const renderTemplate = () => {

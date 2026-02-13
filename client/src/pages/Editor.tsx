@@ -2,12 +2,18 @@
  * Editor — Page principale de l'éditeur mobile first
  * Flux : Sélection visuelle de template → Formulaire + Prévisualisation → Actions
  * Design: Inclusion sociale, simplicité, accessibilité
+ * 
+ * Actions principales :
+ * - Télécharger vCard (enregistrement dans le répertoire)
+ * - Export PNG haute résolution
+ * - Export PDF format carte de visite
+ * - Impression directe
  */
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Download, Printer, Eye, Edit3,
-  RotateCcw
+  RotateCcw, Image, FileText, Loader2, Share2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -16,7 +22,7 @@ import CardForm from "@/components/CardForm";
 import CardPreview from "@/components/CardPreview";
 import TemplateSelector from "@/components/TemplateSelector";
 import { saveCardData, loadCardData, clearCardData } from "@/lib/storage";
-import { downloadVCard, printCard } from "@/lib/export-utils";
+import { downloadVCard, printCard, exportAsPNG, exportAsPDF } from "@/lib/export-utils";
 import { defaultCardData } from "@/lib/types";
 import type { BusinessCardData, TemplateId } from "@/lib/types";
 
@@ -32,6 +38,8 @@ export default function Editor() {
   });
   const [activeView, setActiveView] = useState<"form" | "preview">("form");
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [isExporting, setIsExporting] = useState<"png" | "pdf" | null>(null);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Auto-save
   useEffect(() => {
@@ -53,7 +61,47 @@ export default function Editor() {
       return;
     }
     downloadVCard(cardData);
-    toast.success("Fichier vCard téléchargé !");
+    toast.success("Fichier vCard téléchargé ! Ouvrez-le pour enregistrer le contact dans votre répertoire.");
+  };
+
+  const handleExportPNG = async () => {
+    if (!cardData.personal.fullName) {
+      toast.error("Veuillez saisir au moins votre nom");
+      return;
+    }
+    setIsExporting("png");
+    try {
+      await exportAsPNG(cardData, (status) => {
+        if (status === "Terminé !") {
+          toast.success("Image PNG téléchargée en haute résolution !");
+        }
+      });
+    } catch {
+      toast.error("Erreur lors de l'export PNG. Veuillez réessayer.");
+    } finally {
+      setIsExporting(null);
+      setShowExportMenu(false);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (!cardData.personal.fullName) {
+      toast.error("Veuillez saisir au moins votre nom");
+      return;
+    }
+    setIsExporting("pdf");
+    try {
+      await exportAsPDF(cardData, (status) => {
+        if (status === "Terminé !") {
+          toast.success("PDF téléchargé ! Prêt pour l'impression professionnelle.");
+        }
+      });
+    } catch {
+      toast.error("Erreur lors de l'export PDF. Veuillez réessayer.");
+    } finally {
+      setIsExporting(null);
+      setShowExportMenu(false);
+    }
   };
 
   const handlePrint = () => {
@@ -120,7 +168,6 @@ export default function Editor() {
                   selected={cardData.templateId}
                   onSelect={(id) => {
                     handleTemplateChange(id);
-                    // Sur mobile, fermer le sélecteur après choix
                     if (window.innerWidth < 768) {
                       setTimeout(() => setShowTemplateSelector(false), 300);
                     }
@@ -187,21 +234,63 @@ export default function Editor() {
                   <CardPreview data={cardData} />
                 </motion.div>
 
-                {/* Actions */}
+                {/* ── Actions d'export (Desktop) ── */}
                 <div className="mt-6 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <Button onClick={handleDownloadVCard} className="touch-target" size="lg">
-                      <Download className="w-5 h-5 mr-2" />
-                      Télécharger vCard
+                  {/* Bouton principal : vCard */}
+                  <Button
+                    onClick={handleDownloadVCard}
+                    className="w-full touch-target"
+                    size="lg"
+                    style={{ backgroundColor: "#FF6B00" }}
+                  >
+                    <Download className="w-5 h-5 mr-2" />
+                    Enregistrer dans le répertoire (vCard)
+                  </Button>
+
+                  <p className="text-xs text-muted-foreground text-center">
+                    Le QR code sur la carte permet aussi d'enregistrer le contact en le scannant
+                  </p>
+
+                  {/* Boutons secondaires : PNG, PDF, Imprimer */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={handleExportPNG}
+                      disabled={isExporting !== null}
+                      className="touch-target text-xs"
+                      size="sm"
+                    >
+                      {isExporting === "png" ? (
+                        <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                      ) : (
+                        <Image className="w-4 h-4 mr-1.5" />
+                      )}
+                      PNG
                     </Button>
-                    <Button variant="outline" onClick={handlePrint} className="touch-target" size="lg">
-                      <Printer className="w-5 h-5 mr-2" />
+                    <Button
+                      variant="outline"
+                      onClick={handleExportPDF}
+                      disabled={isExporting !== null}
+                      className="touch-target text-xs"
+                      size="sm"
+                    >
+                      {isExporting === "pdf" ? (
+                        <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                      ) : (
+                        <FileText className="w-4 h-4 mr-1.5" />
+                      )}
+                      PDF
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handlePrint}
+                      className="touch-target text-xs"
+                      size="sm"
+                    >
+                      <Printer className="w-4 h-4 mr-1.5" />
                       Imprimer
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Le QR code contient vos informations de contact au format vCard
-                  </p>
                 </div>
               </div>
             </div>
@@ -209,16 +298,88 @@ export default function Editor() {
         </div>
       </main>
 
-      {/* Mobile bottom action bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border p-3 safe-area-bottom z-40">
-        <div className="flex gap-2">
-          <Button onClick={handleDownloadVCard} className="flex-1 touch-target" size="lg">
+      {/* ── Mobile bottom action bar ── */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border safe-area-bottom z-40">
+        <div className="p-3 space-y-2">
+          {/* Bouton principal : vCard */}
+          <Button
+            onClick={handleDownloadVCard}
+            className="w-full touch-target"
+            size="lg"
+            style={{ backgroundColor: "#FF6B00" }}
+          >
             <Download className="w-5 h-5 mr-2" />
-            vCard
+            Enregistrer le contact
           </Button>
-          <Button variant="outline" onClick={handlePrint} className="touch-target" size="lg">
-            <Printer className="w-5 h-5" />
-          </Button>
+
+          {/* Boutons secondaires */}
+          <div className="relative">
+            <button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="w-full flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Share2 className="w-4 h-4" />
+              Plus d'options (PNG, PDF, Imprimer)
+              <motion.svg
+                animate={{ rotate: showExportMenu ? 180 : 0 }}
+                transition={{ duration: 0.2 }}
+                width="14" height="14" viewBox="0 0 20 20" fill="none"
+              >
+                <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </motion.svg>
+            </button>
+
+            {/* Menu dépliable */}
+            <motion.div
+              initial={false}
+              animate={{
+                height: showExportMenu ? "auto" : 0,
+                opacity: showExportMenu ? 1 : 0,
+              }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="grid grid-cols-3 gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={handleExportPNG}
+                  disabled={isExporting !== null}
+                  className="touch-target text-xs"
+                  size="sm"
+                >
+                  {isExporting === "png" ? (
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  ) : (
+                    <Image className="w-4 h-4 mr-1" />
+                  )}
+                  Image PNG
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleExportPDF}
+                  disabled={isExporting !== null}
+                  className="touch-target text-xs"
+                  size="sm"
+                >
+                  {isExporting === "pdf" ? (
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  ) : (
+                    <FileText className="w-4 h-4 mr-1" />
+                  )}
+                  PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handlePrint}
+                  className="touch-target text-xs"
+                  size="sm"
+                >
+                  <Printer className="w-4 h-4 mr-1" />
+                  Imprimer
+                </Button>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </div>
 
