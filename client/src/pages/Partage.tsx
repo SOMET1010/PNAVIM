@@ -11,6 +11,24 @@ import {
   QrCode, Download, CreditCard, X, Check
 } from "lucide-react";
 
+// LinkedIn icon SVG component
+function LinkedInIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+    </svg>
+  );
+}
+
+// Twitter/X icon SVG component
+function TwitterXIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+    </svg>
+  );
+}
+
 export default function Partage() {
   const { user, loading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
@@ -64,6 +82,8 @@ export default function Partage() {
 
   const qrVCard = useMemo(() => generateVCard(), [cardData]);
 
+  const fullName = `${cardData?.prenom || ""} ${cardData?.nom || ""}`.trim();
+
   const downloadVCard = () => {
     const vcard = generateVCard();
     if (!vcard) return;
@@ -94,17 +114,32 @@ export default function Partage() {
   };
 
   const shareEmail = () => {
-    const subject = `Carte de visite - ${cardData?.prenom || ""} ${cardData?.nom || ""}`;
-    const body = `Bonjour,\n\nVoici ma carte de visite professionnelle :\n${shareUrl}\n\nCordialement,\n${cardData?.prenom || ""} ${cardData?.nom || ""}`;
+    const subject = `Carte de visite - ${fullName}`;
+    const body = `Bonjour,\n\nVoici ma carte de visite professionnelle :\n${shareUrl}\n\nCordialement,\n${fullName}`;
     window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+  };
+
+  const shareLinkedIn = () => {
+    // LinkedIn sharing URL - shares the card link as a post
+    const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
+    window.open(linkedInUrl, "_blank", "noopener,noreferrer");
+    toast.success("Ouverture de LinkedIn...");
+  };
+
+  const shareTwitter = () => {
+    // Twitter/X sharing URL with pre-filled text
+    const tweetText = `Découvrez ma carte de visite professionnelle 🇨🇮`;
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(shareUrl)}`;
+    window.open(twitterUrl, "_blank", "noopener,noreferrer");
+    toast.success("Ouverture de Twitter/X...");
   };
 
   const shareNative = async () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Carte de visite - ${cardData?.prenom} ${cardData?.nom}`,
-          text: `Carte de visite professionnelle de ${cardData?.prenom} ${cardData?.nom}`,
+          title: `Carte de visite - ${fullName}`,
+          text: `Carte de visite professionnelle de ${fullName}`,
           url: shareUrl,
         });
       } catch {
@@ -160,7 +195,7 @@ export default function Partage() {
               <QRCode value={qrVCard || "https://carteci.ci"} size={180} level="M" />
             </div>
             <p className="text-xs text-muted-foreground text-center">
-              {cardData?.prenom} {cardData?.nom}
+              {fullName}
               {cardData?.fonction && <><br />{cardData.fonction}</>}
             </p>
             <Button variant="outline" size="sm" onClick={() => setShowQRFull(true)}>
@@ -185,40 +220,81 @@ export default function Partage() {
           </CardContent>
         </Card>
 
-        {/* Options de partage */}
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant="outline"
-            className="h-auto py-4 flex-col gap-2"
-            onClick={shareWhatsApp}
-          >
-            <MessageCircle className="w-6 h-6 text-green-600" />
-            <span className="text-xs font-medium">WhatsApp</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="h-auto py-4 flex-col gap-2"
-            onClick={shareEmail}
-          >
-            <Mail className="w-6 h-6 text-primary" />
-            <span className="text-xs font-medium">Email</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="h-auto py-4 flex-col gap-2"
-            onClick={downloadVCard}
-          >
-            <Download className="w-6 h-6 text-ci-green" />
-            <span className="text-xs font-medium">vCard (.vcf)</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="h-auto py-4 flex-col gap-2"
-            onClick={shareNative}
-          >
-            <Share2 className="w-6 h-6 text-ci-orange" />
-            <span className="text-xs font-medium">Partager...</span>
-          </Button>
+        {/* Section : Messagerie */}
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+            Messagerie
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex-col gap-2 hover:border-green-300 hover:bg-green-50/50 transition-colors"
+              onClick={shareWhatsApp}
+            >
+              <MessageCircle className="w-6 h-6 text-green-600" />
+              <span className="text-xs font-medium">WhatsApp</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex-col gap-2 hover:border-primary/30 hover:bg-primary/5 transition-colors"
+              onClick={shareEmail}
+            >
+              <Mail className="w-6 h-6 text-primary" />
+              <span className="text-xs font-medium">Email</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Section : Réseaux sociaux */}
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+            Réseaux sociaux
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex-col gap-2 hover:border-[#0A66C2]/30 hover:bg-[#0A66C2]/5 transition-colors"
+              onClick={shareLinkedIn}
+              disabled={!shareUrl}
+            >
+              <LinkedInIcon className="w-6 h-6 text-[#0A66C2]" />
+              <span className="text-xs font-medium">LinkedIn</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex-col gap-2 hover:border-neutral-400 hover:bg-neutral-50 transition-colors"
+              onClick={shareTwitter}
+              disabled={!shareUrl}
+            >
+              <TwitterXIcon className="w-6 h-6 text-neutral-900" />
+              <span className="text-xs font-medium">Twitter / X</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Section : Téléchargement & Autres */}
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+            Téléchargement
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex-col gap-2 hover:border-ci-green/30 hover:bg-ci-green/5 transition-colors"
+              onClick={downloadVCard}
+            >
+              <Download className="w-6 h-6 text-ci-green" />
+              <span className="text-xs font-medium">vCard (.vcf)</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex-col gap-2 hover:border-ci-orange/30 hover:bg-ci-orange/5 transition-colors"
+              onClick={shareNative}
+            >
+              <Share2 className="w-6 h-6 text-ci-orange" />
+              <span className="text-xs font-medium">Partager...</span>
+            </Button>
+          </div>
         </div>
       </main>
 
@@ -235,7 +311,7 @@ export default function Partage() {
           </Button>
           <QRCode value={qrVCard || "https://carteci.ci"} size={280} level="M" />
           <div className="mt-6 text-center space-y-1">
-            <p className="font-semibold">{cardData?.prenom} {cardData?.nom}</p>
+            <p className="font-semibold">{fullName}</p>
             {cardData?.fonction && <p className="text-sm text-muted-foreground">{cardData.fonction}</p>}
             {cardData?.organisation && <p className="text-sm text-muted-foreground">{cardData.organisation}</p>}
           </div>

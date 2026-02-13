@@ -62,3 +62,9 @@
 - [x] Créer l'interface frontend de vérification email + saisie OTP
 - [x] Intégrer le flux OTP dans le parcours de connexion (après OAuth, avant Ma Carte)
 - [x] Écrire les tests vitest pour le module OTP (13 tests)
+
+## Partage réseaux sociaux
+- [x] Ajouter bouton de partage LinkedIn dans la page Partage
+- [x] Ajouter bouton de partage Twitter (X) dans la page Partage
+- [x] Intégrer les icônes et couleurs officielles LinkedIn et Twitter
+- [x] Tester les liens de partage sur mobile et desktop
