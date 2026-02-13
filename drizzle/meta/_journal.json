@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1770989904144,
+      "tag": "0000_conscious_naoko",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1770990018263,
+      "tag": "0001_lazy_chimera",
+      "breakpoints": true
+    }
+  ]
+}

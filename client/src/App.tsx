@@ -5,13 +5,19 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
-import Editor from "./pages/Editor";
+import MaCarte from "./pages/MaCarte";
+import Partage from "./pages/Partage";
+import Admin from "./pages/Admin";
+import CardPublic from "./pages/CardPublic";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/editor" component={Editor} />
+      <Route path="/ma-carte" component={MaCarte} />
+      <Route path="/partage" component={Partage} />
+      <Route path="/admin" component={Admin} />
+      <Route path="/carte/:id" component={CardPublic} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
